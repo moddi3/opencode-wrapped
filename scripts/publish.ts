@@ -11,15 +11,23 @@ import { buildTargets } from "./build";
 const dir = path.resolve(import.meta.dir, "..");
 $.cwd(dir);
 
-const [, , version] = Bun.argv;
+const args = Bun.argv.slice(2);
+const dryRun = args.includes("--dry-run");
+const versionArg = args.find((arg) => !arg.startsWith("--"));
+// Append a prerelease suffix during dry runs to avoid "already published" errors
+const version = dryRun && versionArg ? `${versionArg}-dry-run.${Date.now()}` : versionArg;
 
 if (!version) {
-  console.error("Usage: bun run scripts/publish.ts <version>");
+  console.error("Usage: bun run scripts/publish.ts <version> [--dry-run]");
   process.exit(1);
 }
 
-console.log(`\n🚀 Publishing ${pkg.name} v${version}\n`);
+console.log(`\n🚀 Publishing ${pkg.name} v${version}${dryRun ? " (DRY RUN)" : ""}\n`);
 console.log("─".repeat(50));
+
+if (dryRun) {
+  console.log("⚠️  Dry run mode: no packages will be published to npm\n");
+}
 
 // Build all platforms
 const binaries = await buildTargets(version);
@@ -85,16 +93,26 @@ for (const [name] of Object.entries(binaries)) {
     await $`chmod -R 755 .`.cwd(targetPath);
   }
 
-  // await $`npm publish --access public`.cwd(targetPath);
-  console.log(`✅ Published ${name}`);
+  if (dryRun) {
+    await $`npm publish --access public --dry-run --tag dry-run`.cwd(targetPath);
+    console.log(`✅ Would publish ${name}`);
+  } else {
+    await $`npm publish --access public`.cwd(targetPath);
+    console.log(`✅ Published ${name}`);
+  }
 }
 
 // Publish main package
 console.log("\n📤 Publishing main package...");
 
 const mainPackagePath = path.join(dir, "dist", targetpackageName);
-// await $`npm publish --access public`.cwd(mainPackagePath);
-console.log(`✅ Published ${pkg.name}`);
+if (dryRun) {
+  await $`npm publish --access public --dry-run --tag dry-run`.cwd(mainPackagePath);
+  console.log(`✅ Would publish ${pkg.name}`);
+} else {
+  await $`npm publish --access public`.cwd(mainPackagePath);
+  console.log(`✅ Published ${pkg.name}`);
+}
 
 // Create archives for GitHub releases
 console.log("\n📦 Creating release archives...");
@@ -118,6 +136,6 @@ for (const name of Object.keys(binaries)) {
 
 // Summary
 console.log(`\n${"─".repeat(50)}`);
-console.log("\n✅ Publish complete!\n");
+console.log(`\n✅ ${dryRun ? "Dry run" : "Publish"} complete!\n`);
 console.log(`Version: ${version}`);
 console.log(`Packages: ${Object.keys(binaries).length + 1}`);

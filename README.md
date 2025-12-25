@@ -6,10 +6,10 @@
 
 Generate a personalized "Spotify Wrapped"-style summary of your [OpenCode](https://opencode.ai) usage.
 
-<!-- <img src="https://github.com/user-attachments/assets/placeholder.png" alt="OpenCode Wrapped Example" width="600" /> -->
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh)
+
+<img src="./assets/images/demo-wrapped.png" alt="OpenCode Wrapped Example" width="600" />
 
 </div>
 

@@ -114,26 +114,6 @@ if (dryRun) {
   console.log(`✅ Published ${pkg.name}`);
 }
 
-// Create archives for GitHub releases
-console.log("\n📦 Creating release archives...");
-
-for (const name of Object.keys(binaries)) {
-  const pkgName = name.replace(pkg.name, targetpackageName);
-  const binDir = path.join(dir, "dist", pkgName, "bin");
-
-  try {
-    if (name.includes("linux")) {
-      await $`tar -czf ../${pkgName}.tar.gz *`.cwd(binDir);
-      console.log(`✅ Created ${pkgName}.tar.gz`);
-    } else {
-      await $`zip -r ../${pkgName}.zip *`.cwd(binDir);
-      console.log(`✅ Created ${pkgName}.zip`);
-    }
-  } catch (error) {
-    console.error(`❌ Failed to create archive for ${pkgName}:`, error);
-  }
-}
-
 // Summary
 console.log(`\n${"─".repeat(50)}`);
 console.log(`\n✅ ${dryRun ? "Dry run" : "Publish"} complete!\n`);

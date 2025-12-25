@@ -6,7 +6,7 @@
 
 Generate a personalized "Spotify Wrapped"-style summary of your [OpenCode](https://opencode.ai) usage.
 
-<img src="https://github.com/user-attachments/assets/placeholder.png" alt="OpenCode Wrapped Example" width="600" />
+<!-- <img src="https://github.com/user-attachments/assets/placeholder.png" alt="OpenCode Wrapped Example" width="600" /> -->
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh)
@@ -17,77 +17,47 @@ Generate a personalized "Spotify Wrapped"-style summary of your [OpenCode](https
 
 ## Features
 
-- **Comprehensive Stats** — Sessions, messages, tokens, projects, and streaks
-- **Activity Heatmap** — GitHub-style visualization of your coding activity
-- **Top Models & Providers** — See which AI models you used most
-- **Cost Tracking** — Track your OpenCode Zen spending
-- **Beautiful Image Generation** — Shareable PNG card with your stats
-- **Terminal Image Display** — Native support for Ghostty, Kitty, iTerm2, WezTerm, and Konsole
-- **Cross-Platform Clipboard** — Copy your wrapped image with one click
+- Sessions, messages, tokens, projects, and streaks
+- GitHub-style activity heatmap
+- Top models and providers breakdown
+- OpenCode Zen cost tracking
+- Shareable PNG image
+- Inline image display (Ghostty, Kitty, iTerm2, WezTerm, Konsole)
+- Auto-copy to clipboard
 
 ## Installation
 
-### Prerequisites
+### Quick Start
 
-- [Bun](https://bun.sh) runtime
-- [OpenCode](https://opencode.ai) installed and used at least once
-
-### From Source
+Run directly without installing:
 
 ```bash
-# Clone the repository
-git clone https://github.com/moddi3/opencode-wrapped.git
-cd opencode-wrapped
-
-# Install dependencies
-bun install
-
-# Run directly
-bun run start
-
-# Or build a standalone binary
-bun run build
-./dist/oc-wrapped
+npx oc-wrapped
+# or
+bunx oc-wrapped
 ```
 
-### Pre-built Binaries
-
-Download the latest release for your platform:
+### Global Install
 
 ```bash
-# macOS (Apple Silicon)
-curl -L https://github.com/moddi3/opencode-wrapped/releases/latest/download/oc-wrapped-darwin-arm64 -o oc-wrapped
-chmod +x oc-wrapped
-
-# macOS (Intel)
-curl -L https://github.com/moddi3/opencode-wrapped/releases/latest/download/oc-wrapped-darwin-x64 -o oc-wrapped
-chmod +x oc-wrapped
-
-# Linux (x64)
-curl -L https://github.com/moddi3/opencode-wrapped/releases/latest/download/oc-wrapped-linux-x64 -o oc-wrapped
-chmod +x oc-wrapped
+npm install -g oc-wrapped
+# or
+bun install -g oc-wrapped
 ```
 
-## Usage
+Then run anywhere:
 
 ```bash
-# Generate your wrapped for the current year
 oc-wrapped
-
-# Generate wrapped for a specific year
-oc-wrapped --year 2024
-
-# Show help
-oc-wrapped --help
 ```
 
-### Options
+## Usage Options
 
-| Option          | Description                                                  |
-| --------------- | ------------------------------------------------------------ |
-| `--year <YYYY>` | Generate wrapped for a specific year (default: current year) |
-| `--help, -h`    | Show help message                                            |
-| `--version, -v` | Show version number                                          |
+| Option          | Description                          |
+| --------------- | ------------------------------------ |
+| `--year, -y`    | Generate wrapped for a specific year |
+| `--help, -h`    | Show help message                    |
+| `--version, -v` | Show version number                  |
 
 ## Terminal Support
 
@@ -108,7 +78,7 @@ The tool generates:
 
 1. **Terminal Summary** — Quick stats overview in your terminal
 2. **PNG Image** — A beautiful, shareable wrapped card saved to your home directory
-3. **Clipboard** — Optionally copy the image directly to your clipboard
+3. **Clipboard** — Automatically copies the image to your clipboard
 
 ## Data Source
 
@@ -132,75 +102,20 @@ bun run dev
 ### Production Build
 
 ```bash
-# Build for current platform
-bun run build
-
 # Build for all platforms
-bun run build --all
-
-# Build for specific platforms
-bun run build --target linux-x64,darwin-arm64
+bun run build
 ```
-
-### Available Build Targets
-
-| Platform              | Target         | Output                       |
-| --------------------- | -------------- | ---------------------------- |
-| macOS (Apple Silicon) | `darwin-arm64` | `oc-wrapped-darwin-arm64`    |
-| macOS (Intel)         | `darwin-x64`   | `oc-wrapped-darwin-x64`      |
-| Linux (x64)           | `linux-x64`    | `oc-wrapped-linux-x64`       |
-| Linux (ARM64)         | `linux-arm64`  | `oc-wrapped-linux-arm64`     |
-| Windows (x64)         | `windows-x64`  | `oc-wrapped-windows-x64.exe` |
 
 ### Releasing
 
-Releases are automated via GitHub Actions. To create a new release:
-
-```bash
-# Tag and push
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-This will automatically build binaries for all platforms and create a GitHub release.
+Releases are automated via [semantic-release](https://semantic-release.gitbook.io). Merging PRs with [conventional commits](https://www.conventionalcommits.org) to `main` triggers a release.
 
 ## Tech Stack
 
 - **Runtime**: [Bun](https://bun.sh)
 - **Image Generation**: [Satori](https://github.com/vercel/satori) + [Resvg](https://github.com/nicolo-ribaudo/resvg-js)
-- **CLI UI**: [@clack/prompts](https://github.com/bombshell-dev/clack)
-- **Clipboard**: [@crosscopy/clipboard](https://github.com/CrossCopy/clipboard)
+- **CLI UI**: [@clack/prompts](https://github.com/natemoo-re/clack)
 - **Font**: IBM Plex Mono
-
-## Project Structure
-
-```
-oc-wrapped/
-├── src/
-│   ├── index.ts          # CLI entry point
-│   ├── collector.ts      # Data collection from OpenCode
-│   ├── stats.ts          # Statistics calculation
-│   ├── types.ts          # TypeScript types
-│   ├── constants.ts      # Image dimensions, etc.
-│   ├── image/
-│   │   ├── generator.tsx # Satori + Resvg image generation
-│   │   ├── template.tsx  # React template for the card
-│   │   ├── heatmap.tsx   # Activity heatmap component
-│   │   └── fonts.ts      # Font loading
-│   ├── terminal/
-│   │   └── display.ts    # Terminal image protocols
-│   └── utils/
-│       ├── dates.ts      # Date utilities
-│       └── format.ts     # Number formatting
-├── scripts/
-│   └── build.ts          # Cross-platform build script
-├── assets/
-│   └── fonts/            # IBM Plex Mono font files
-├── .github/
-│   └── workflows/
-│       └── release.yml   # GitHub Actions release workflow
-└── dist/                 # Compiled binaries
-```
 
 ## Contributing
 

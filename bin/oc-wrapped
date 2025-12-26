@@ -9,18 +9,6 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-function run(target) {
-  const result = spawnSync(target, process.argv.slice(2), {
-    stdio: "inherit",
-  });
-  if (result.error) {
-    console.error(result.error.message);
-    process.exit(1);
-  }
-  const code = typeof result.status === "number" ? result.status : 0;
-  process.exit(code);
-}
-
 const platformMap = {
   darwin: "darwin",
   linux: "linux",
@@ -42,7 +30,8 @@ if (!arch) {
 const base = "oc-wrapped-" + platform + "-" + arch;
 const binary = platform === "windows" ? "oc-wrapped.exe" : "oc-wrapped";
 
-function findBinary(startDir) {
+function findAllBinaries(startDir) {
+  const binaries = [];
   let current = startDir;
   for (;;) {
     const modules = join(current, "node_modules");
@@ -54,20 +43,23 @@ function findBinary(startDir) {
         }
         const candidate = join(modules, entry, "bin", binary);
         if (fs.existsSync(candidate)) {
-          return candidate;
+          binaries.push({ path: candidate, package: entry });
         }
       }
     }
     const parent = dirname(current);
     if (parent === current) {
-      return;
+      break;
     }
     current = parent;
   }
+  return binaries;
 }
 
-const resolved = findBinary(__dirname);
-if (!resolved) {
+// Find all available binaries for this platform
+const binaries = findAllBinaries(__dirname);
+
+if (binaries.length === 0) {
   console.error(
     'It seems that your package manager failed to install the right version of oc-wrapped CLI for your platform. You can try manually installing "' +
       base +
@@ -76,4 +68,58 @@ if (!resolved) {
   process.exit(1);
 }
 
-run(resolved);
+// Sort binaries: baseline variants last (as fallback)
+binaries.sort((a, b) => {
+  const aIsBaseline = a.package.includes("baseline");
+  const bIsBaseline = b.package.includes("baseline");
+  if (aIsBaseline && !bIsBaseline) return 1;
+  if (!aIsBaseline && bIsBaseline) return -1;
+  return 0;
+});
+
+// Try each binary in order until one works
+let lastError = null;
+for (let i = 0; i < binaries.length; i++) {
+  const { path: binaryPath, package: packageName } = binaries[i];
+  
+  // For non-last binaries, try with a version check first to detect symbol errors
+  if (i < binaries.length - 1) {
+    const testResult = spawnSync(binaryPath, ["--version"], {
+      stdio: "pipe",
+      timeout: 5000,
+    });
+    
+    if (testResult.error) {
+      // Binary failed to execute (e.g., symbol relocation errors)
+      lastError = testResult.error;
+      continue;
+    }
+  }
+  
+  // Run the binary normally with all arguments
+  const result = spawnSync(binaryPath, process.argv.slice(2), {
+    stdio: "inherit",
+  });
+  
+  if (result.error) {
+    lastError = result.error;
+    if (i < binaries.length - 1) {
+      // Try next binary
+      continue;
+    } else {
+      // Last binary also failed
+      console.error(result.error.message);
+      process.exit(1);
+    }
+  }
+  
+  const code = typeof result.status === "number" ? result.status : 0;
+  process.exit(code);
+}
+
+// If we get here, all binaries failed
+console.error("Failed to execute oc-wrapped binary.");
+if (lastError) {
+  console.error(lastError.message);
+}
+process.exit(1);

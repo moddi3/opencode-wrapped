@@ -4,36 +4,43 @@ import * as p from "@clack/prompts";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { xdgData } from "xdg-basedir";
-
-import { checkOpenCodeDataExists } from "./collector";
+import { checkDataExists, getAvailableSources, getDataPath } from "./collector";
 import { calculateStats } from "./stats";
 import { generateImage } from "./image/generator";
 import { displayInTerminal, getTerminalName } from "./terminal/display";
 import { copyImageToClipboard } from "./clipboard";
 import { isWrappedAvailable } from "./utils/dates";
 import { formatNumber } from "./utils/format";
-import type { OpenCodeStats } from "./types";
+import type { DataSource, WrappedStats } from "./types";
 
 const VERSION = "1.0.0";
+
+const SOURCE_NAMES: Record<DataSource, string> = {
+  opencode: "OpenCode",
+  claude: "Claude Code",
+  codex: "Codex",
+  pi: "Pi",
+};
 
 function printHelp() {
   console.log(`
 oc-wrapped v${VERSION}
 
-Generate your OpenCode year in review stats card.
+Generate your AI coding agent year in review.
 
 USAGE:
   oc-wrapped [OPTIONS]
 
 OPTIONS:
-  --year <YYYY>    Generate wrapped for a specific year (default: current year)
-  --help, -h       Show this help message
-  --version, -v    Show version number
+  --year <YYYY>       Generate wrapped for a specific year (default: current year)
+  --source <name>     Data source: opencode, claude, codex, pi (default: auto-detect)
+  --help, -h          Show this help message
+  --version, -v       Show version number
 
 EXAMPLES:
-  oc-wrapped              # Generate current year wrapped
-  oc-wrapped --year 2025  # Generate 2025 wrapped
+  oc-wrapped                    # Generate current year wrapped
+  oc-wrapped --year 2025        # Generate 2025 wrapped
+  oc-wrapped --source claude    # Use Claude Code sessions
 `);
 }
 
@@ -43,6 +50,7 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       year: { type: "string", short: "y" },
+      source: { type: "string", short: "s" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" },
     },
@@ -60,7 +68,7 @@ async function main() {
     process.exit(0);
   }
 
-  p.intro("opencode wrapped");
+  p.intro("wrapped");
 
   const requestedYear = values.year ? parseInt(values.year, 10) : new Date().getFullYear();
 
@@ -75,18 +83,57 @@ async function main() {
     process.exit(0);
   }
 
-  const dataExists = await checkOpenCodeDataExists();
-  if (!dataExists) {
-    p.cancel(`OpenCode data not found in ${xdgData}/opencode\n\nMake sure you have used OpenCode at least once.`);
-    process.exit(0);
+  // Determine data source
+  let source: DataSource;
+
+  if (values.source) {
+    if (!["opencode", "claude", "codex", "pi"].includes(values.source)) {
+      p.cancel(`Invalid source: ${values.source}. Use 'opencode', 'claude', 'codex', or 'pi'.`);
+      process.exit(1);
+    }
+    source = values.source as DataSource;
+
+    const exists = await checkDataExists(source);
+    if (!exists) {
+      p.cancel(`${SOURCE_NAMES[source]} data not found at ${getDataPath(source)}`);
+      process.exit(1);
+    }
+  } else {
+    const available = await getAvailableSources();
+
+    if (available.length === 0) {
+      p.cancel(
+        `No session data found.\n\nExpected locations:\n  OpenCode: ~/.local/share/opencode/storage/\n  Claude:   ~/.claude/projects/\n  Codex:    ~/.codex/sessions/\n  Pi:       ~/.pi/agent/sessions/`
+      );
+      process.exit(1);
+    }
+
+    if (available.length === 1) {
+      source = available[0];
+    } else {
+      const selected = await p.select({
+        message: "Which source would you like to wrap?",
+        options: available.map((s) => ({
+          value: s,
+          label: SOURCE_NAMES[s],
+        })),
+      });
+
+      if (p.isCancel(selected)) {
+        p.cancel("Cancelled");
+        process.exit(0);
+      }
+
+      source = selected as DataSource;
+    }
   }
 
   const spinner = p.spinner();
-  spinner.start("Scanning your OpenCode history...");
+  spinner.start(`Scanning your ${SOURCE_NAMES[source]} history...`);
 
-  let stats;
+  let stats: WrappedStats;
   try {
-    stats = await calculateStats(requestedYear);
+    stats = await calculateStats(requestedYear, source);
   } catch (error) {
     spinner.stop("Failed to collect stats");
     p.cancel(`Error: ${error}`);
@@ -95,7 +142,7 @@ async function main() {
 
   if (stats.totalSessions === 0) {
     spinner.stop("No data found");
-    p.cancel(`No OpenCode activity found for ${requestedYear}`);
+    p.cancel(`No ${SOURCE_NAMES[source]} activity found for ${requestedYear}`);
     process.exit(0);
   }
 
@@ -108,11 +155,11 @@ async function main() {
     `Total Tokens:  ${formatNumber(stats.totalTokens)}`,
     `Projects:      ${formatNumber(stats.totalProjects)}`,
     `Streak:        ${stats.maxStreak} days`,
-    stats.hasZenUsage && `Zen Cost:      ${stats.totalCost.toFixed(2)}$`,
+    stats.totalCost > 0 && `Cost:          $${stats.totalCost.toFixed(2)}`,
     stats.mostActiveDay && `Most Active:   ${stats.mostActiveDay.formattedDate}`,
-  ];
+  ].filter(Boolean);
 
-  p.note(summaryLines.join("\n"), `Your ${requestedYear} in OpenCode`);
+  p.note(summaryLines.join("\n"), `Your ${requestedYear} in ${SOURCE_NAMES[source]}`);
 
   // Generate image
   spinner.start("Generating your wrapped image...");
@@ -133,7 +180,7 @@ async function main() {
     p.log.info(`Terminal (${getTerminalName()}) doesn't support inline images`);
   }
 
-  const filename = `oc-wrapped-${requestedYear}.png`;
+  const filename = `wrapped-${source}-${requestedYear}.png`;
   const { success, error } = await copyImageToClipboard(image.fullSize, filename);
 
   if (success) {
@@ -184,9 +231,9 @@ async function main() {
   process.exit(0);
 }
 
-function generateTweetUrl(stats: OpenCodeStats): string {
+function generateTweetUrl(stats: WrappedStats): string {
   const text = [
-    `my ${stats.year} opencode wrapped:`,
+    `my ${stats.year} ${SOURCE_NAMES[stats.source]} wrapped:`,
     ``,
     `${formatNumber(stats.totalSessions)} sessions`,
     `${formatNumber(stats.totalMessages)} messages`,

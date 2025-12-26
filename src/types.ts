@@ -1,58 +1,38 @@
-// Types for OpenCode Wrapped
+// Types for CLI Wrapped
+
+export type DataSource = "opencode" | "claude" | "codex" | "pi";
 
 export interface SessionData {
   id: string;
-  version: string;
-  projectID: string;
-  directory: string;
-  title: string;
-  time: {
-    created: number;
-    updated: number;
-  };
-  summary?: {
-    additions: number;
-    deletions: number;
-    files: number;
-  };
+  timestamp: number; // epoch ms
+  cwd: string;
+  provider: string;
+  modelId: string;
+  source: DataSource;
 }
 
 export interface MessageData {
-  id: string;
-  sessionID: string;
-  role: "user" | "assistant";
-  time: {
-    created: number;
-    completed?: number;
-  };
-  parentID?: string;
-  modelID?: string;
-  providerID?: string;
-  mode?: string;
-  agent?: string;
-  cost?: number;
-  tokens?: {
+  sessionId: string;
+  role: "user" | "assistant" | "toolResult";
+  timestamp: number;
+  provider?: string;
+  modelId?: string;
+  usage?: {
     input: number;
     output: number;
-    reasoning: number;
-    cache: {
-      read: number;
-      write: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    cost?: {
+      total: number;
     };
   };
-  finish?: string;
+  source: DataSource;
 }
 
 export interface ProjectData {
-  id: string;
-  worktree: string;
-  vcsDir: string;
-  vcs: string;
-  time: {
-    created: number;
-    updated: number;
-    initialized?: number;
-  };
+  path: string;
+  sessionCount: number;
+  source: DataSource;
 }
 
 export interface ModelStats {
@@ -70,8 +50,9 @@ export interface ProviderStats {
   percentage: number;
 }
 
-export interface OpenCodeStats {
+export interface WrappedStats {
   year: number;
+  source: DataSource;
 
   // Time-based
   firstSessionDate: Date;
@@ -87,9 +68,8 @@ export interface OpenCodeStats {
   totalOutputTokens: number;
   totalTokens: number;
 
-  // Cost (only from OpenCode/Zen provider)
+  // Cost
   totalCost: number;
-  hasZenUsage: boolean;
 
   // Models (sorted by usage)
   topModels: ModelStats[];
@@ -100,10 +80,10 @@ export interface OpenCodeStats {
   // Streak
   maxStreak: number;
   currentStreak: number;
-  maxStreakDays: Set<string>; // Days that form the max streak (for heatmap highlighting)
+  maxStreakDays: Set<string>;
 
   // Activity heatmap (for the year)
-  dailyActivity: Map<string, number>; // "2025-01-15" -> count
+  dailyActivity: Map<string, number>;
 
   // Most active day
   mostActiveDay: {
@@ -116,6 +96,9 @@ export interface OpenCodeStats {
   weekdayActivity: WeekdayActivity;
 }
 
+// Keep OpenCodeStats as alias for compatibility
+export type OpenCodeStats = WrappedStats;
+
 export interface WeekdayActivity {
   counts: [number, number, number, number, number, number, number];
   mostActiveDay: number;
@@ -125,5 +108,6 @@ export interface WeekdayActivity {
 
 export interface CliArgs {
   year?: number;
+  source?: DataSource;
   help?: boolean;
 }

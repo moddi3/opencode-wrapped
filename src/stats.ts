@@ -1,19 +1,17 @@
-import type { OpenCodeStats, ModelStats, ProviderStats, WeekdayActivity } from "./types";
-import { collectMessages, collectProjects, collectSessions } from "./collector";
+import type { WrappedStats, ModelStats, ProviderStats, WeekdayActivity, DataSource } from "./types";
+import { collectAll } from "./collector";
 import { fetchModelsData, getModelDisplayName, getModelProvider, getProviderDisplayName } from "./models";
 
-export async function calculateStats(year: number): Promise<OpenCodeStats> {
-  const [, allSessions, messages, projects] = await Promise.all([
+export async function calculateStats(year: number, source: DataSource): Promise<WrappedStats> {
+  const [, { sessions: allSessions, messages, projects }] = await Promise.all([
     fetchModelsData(),
-    collectSessions(),
-    collectMessages(year),
-    collectProjects(),
+    collectAll(source),
   ]);
 
-  const sessions = allSessions.filter((s) => new Date(s.time.created).getFullYear() === year);
+  const sessions = allSessions.filter((s) => new Date(s.timestamp).getFullYear() === year);
+  const yearMessages = messages.filter((m) => new Date(m.timestamp).getFullYear() === year);
 
   // Find first session date (ever, not just this year)
-  // Guard against empty sessions array - Math.min() returns Infinity with no arguments
   let firstSessionDate: Date;
   let daysSinceFirstSession: number;
 
@@ -21,46 +19,44 @@ export async function calculateStats(year: number): Promise<OpenCodeStats> {
     firstSessionDate = new Date();
     daysSinceFirstSession = 0;
   } else {
-    const firstSessionTimestamp = Math.min(...allSessions.map((s) => s.time.created));
+    const firstSessionTimestamp = Math.min(...allSessions.map((s) => s.timestamp));
     firstSessionDate = new Date(firstSessionTimestamp);
     daysSinceFirstSession = Math.floor((Date.now() - firstSessionTimestamp) / (1000 * 60 * 60 * 24));
   }
 
   const totalSessions = sessions.length;
-  const totalMessages = messages.length;
+  const totalMessages = yearMessages.length;
   const totalProjects = projects.length;
 
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCost = 0;
-  let hasZenUsage = false;
   const modelCounts = new Map<string, number>();
   const providerCounts = new Map<string, number>();
   const dailyActivity = new Map<string, number>();
   const weekdayCounts: [number, number, number, number, number, number, number] = [0, 0, 0, 0, 0, 0, 0];
 
-  for (const message of messages) {
-    if (message.tokens) {
-      totalInputTokens += message.tokens.input || 0;
-      totalOutputTokens += message.tokens.output || 0;
-    }
+  for (const message of yearMessages) {
+    if (message.usage) {
+      totalInputTokens += message.usage.input || 0;
+      totalOutputTokens += message.usage.output || 0;
 
-    if (message.providerID === "opencode" && message.cost) {
-      totalCost += message.cost;
-      hasZenUsage = true;
+      if (message.usage.cost?.total) {
+        totalCost += message.usage.cost.total;
+      }
     }
 
     if (message.role === "assistant") {
-      if (message.modelID) {
-        modelCounts.set(message.modelID, (modelCounts.get(message.modelID) || 0) + 1);
+      if (message.modelId) {
+        modelCounts.set(message.modelId, (modelCounts.get(message.modelId) || 0) + 1);
       }
-      if (message.providerID) {
-        providerCounts.set(message.providerID, (providerCounts.get(message.providerID) || 0) + 1);
+      if (message.provider) {
+        providerCounts.set(message.provider, (providerCounts.get(message.provider) || 0) + 1);
       }
     }
 
     // Daily activity
-    const date = new Date(message.time.created);
+    const date = new Date(message.timestamp);
     const dateKey = formatDateKey(date);
     dailyActivity.set(dateKey, (dailyActivity.get(dateKey) || 0) + 1);
 
@@ -98,6 +94,7 @@ export async function calculateStats(year: number): Promise<OpenCodeStats> {
 
   return {
     year,
+    source,
     firstSessionDate,
     daysSinceFirstSession,
     totalSessions,
@@ -107,7 +104,6 @@ export async function calculateStats(year: number): Promise<OpenCodeStats> {
     totalOutputTokens,
     totalTokens,
     totalCost,
-    hasZenUsage,
     topModels,
     topProviders,
     maxStreak,

@@ -29,6 +29,7 @@ if (!arch) {
 }
 const base = "oc-wrapped-" + platform + "-" + arch;
 const binary = platform === "windows" ? "oc-wrapped.exe" : "oc-wrapped";
+const VERSION_CHECK_TIMEOUT = 5000;
 
 function findAllBinaries(startDir) {
   const binaries = [];
@@ -80,13 +81,13 @@ binaries.sort((a, b) => {
 // Try each binary in order until one works
 let lastError = null;
 for (let i = 0; i < binaries.length; i++) {
-  const { path: binaryPath, package: packageName } = binaries[i];
+  const { path: binaryPath } = binaries[i];
   
   // For non-last binaries, try with a version check first to detect symbol errors
   if (i < binaries.length - 1) {
     const testResult = spawnSync(binaryPath, ["--version"], {
       stdio: "pipe",
-      timeout: 5000,
+      timeout: VERSION_CHECK_TIMEOUT,
     });
     
     if (testResult.error) {
@@ -106,18 +107,17 @@ for (let i = 0; i < binaries.length; i++) {
     if (i < binaries.length - 1) {
       // Try next binary
       continue;
-    } else {
-      // Last binary also failed
-      console.error(result.error.message);
-      process.exit(1);
     }
+    // Last binary also failed - fall through to error handling
+    break;
   }
   
+  // Binary executed successfully (even if exit code is non-zero)
   const code = typeof result.status === "number" ? result.status : 0;
   process.exit(code);
 }
 
-// If we get here, all binaries failed
+// All binaries failed to execute
 console.error("Failed to execute oc-wrapped binary.");
 if (lastError) {
   console.error(lastError.message);

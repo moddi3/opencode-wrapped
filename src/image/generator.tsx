@@ -2,7 +2,7 @@ import satori from "satori";
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import resvgWasm from "@resvg/resvg-wasm/index_bg.wasm";
 import { WrappedTemplate } from "./template";
-import type { OpenCodeStats } from "../types";
+import type { WrappedStats } from "../types";
 import { loadFonts } from "./fonts";
 import { layout } from "./design-tokens";
 
@@ -13,7 +13,7 @@ export interface GeneratedImage {
   displaySize: Buffer;
 }
 
-export async function generateImage(stats: OpenCodeStats): Promise<GeneratedImage> {
+export async function generateImage(stats: WrappedStats): Promise<GeneratedImage> {
   await initWasm(Bun.file(resvgWasm).arrayBuffer());
 
   const svg = await satori(<WrappedTemplate stats={stats} />, {

@@ -1,13 +1,17 @@
-import type { OpenCodeStats, WeekdayActivity } from "../types";
-import { formatNumber, formatCost, formatShortDate, formatDate } from "../utils/format";
+import type { WrappedStats, WeekdayActivity, DataSource } from "../types";
+import { formatNumber, formatCost, formatDate } from "../utils/format";
 import { ActivityHeatmap } from "./heatmap";
 import { getProviderLogoUrl } from "../models";
 import { colors, typography, spacing, layout, components } from "./design-tokens";
-import logo from "../../assets/images/opencode-wordmark-simple-dark.svg" with { type: 'text' }
 
-const OPENCODE_LOGO_DATA_URL = `data:image/svg+xml;base64,${Buffer.from(logo).toString("base64")}`;
+const SOURCE_DISPLAY: Record<DataSource, { name: string; tagline: string }> = {
+  opencode: { name: "OpenCode", tagline: "opencode.ai" },
+  claude: { name: "Claude Code", tagline: "Anthropic CLI" },
+  codex: { name: "Codex", tagline: "OpenAI CLI" },
+  pi: { name: "Pi", tagline: "shittycodingagent.ai" },
+};
 
-export function WrappedTemplate({ stats }: { stats: OpenCodeStats }) {
+export function WrappedTemplate({ stats }: { stats: WrappedStats }) {
   return (
     <div
       style={{
@@ -24,7 +28,7 @@ export function WrappedTemplate({ stats }: { stats: OpenCodeStats }) {
         paddingBottom: layout.padding.bottom,
       }}
     >
-      <Header year={stats.year} />
+      <Header year={stats.year} source={stats.source} />
 
       <div style={{ marginTop: spacing[12], display: "flex", flexDirection: "row", gap: spacing[16], alignItems: "flex-start" }}>
         <HeroStatItem
@@ -90,12 +94,14 @@ export function WrappedTemplate({ stats }: { stats: OpenCodeStats }) {
       </div>
 
       <StatsGrid stats={stats} />
-      <Footer />
+      <Footer source={stats.source} />
     </div>
   );
 }
 
-function Header({ year }: { year: number }) {
+function Header({ year, source }: { year: number; source: DataSource }) {
+  const display = SOURCE_DISPLAY[source];
+
   return (
     <div
       style={{
@@ -104,13 +110,16 @@ function Header({ year }: { year: number }) {
         gap: spacing[3],
       }}
     >
-      <img
-        src={OPENCODE_LOGO_DATA_URL}
-        height={160}
+      <span
         style={{
-          objectFit: "contain",
+          fontSize: typography.size["5xl"],
+          fontWeight: typography.weight.bold,
+          color: colors.text.primary,
+          lineHeight: typography.lineHeight.none,
         }}
-      />
+      >
+        {display.name}
+      </span>
 
       <span
         style={{
@@ -372,8 +381,8 @@ function RankingItemRow({ rank, name, logoUrl }: RankingItemRowProps) {
   );
 }
 
-function StatsGrid({ stats }: { stats: OpenCodeStats }) {
-  const hasZen = stats.hasZenUsage;
+function StatsGrid({ stats }: { stats: WrappedStats }) {
+  const hasCost = stats.totalCost > 0;
 
   return (
     <div
@@ -384,7 +393,7 @@ function StatsGrid({ stats }: { stats: OpenCodeStats }) {
         gap: spacing[5],
       }}
     >
-      {hasZen ? (
+      {hasCost ? (
         <div style={{ display: "flex", flexDirection: "column", gap: spacing[5] }}>
           <div style={{ display: "flex", gap: spacing[5] }}>
             <StatBox label="Sessions" value={formatNumber(stats.totalSessions)} />
@@ -395,7 +404,7 @@ function StatsGrid({ stats }: { stats: OpenCodeStats }) {
           <div style={{ display: "flex", gap: spacing[5] }}>
             <StatBox label="Projects" value={formatNumber(stats.totalProjects)} />
             <StatBox label="Streak" value={`${stats.maxStreak}d`} />
-            <StatBox label="OpenCode Zen Cost" value={formatCost(stats.totalCost)} />
+            <StatBox label="Cost" value={formatCost(stats.totalCost)} />
           </div>
         </div>
       ) : (
@@ -465,7 +474,9 @@ function StatBox({ label, value }: StatBoxProps) {
   );
 }
 
-function Footer() {
+function Footer({ source }: { source: DataSource }) {
+  const display = SOURCE_DISPLAY[source];
+
   return (
     <div
       style={{
@@ -484,7 +495,7 @@ function Footer() {
           letterSpacing: typography.letterSpacing.normal,
         }}
       >
-        opencode.ai
+        {display.tagline}
       </span>
     </div>
   );

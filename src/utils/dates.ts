@@ -82,8 +82,6 @@ export function getIntensityLevel(count: number, maxCount: number): 0 | 1 | 2 | 
 export function isWrappedAvailable(year: number): { available: boolean; message?: string | string[] } {
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1-12
-  const currentDay = now.getDate();
 
   if (year < currentYear) {
     return { available: true };
@@ -96,24 +94,6 @@ export function isWrappedAvailable(year: number): { available: boolean; message?
     };
   }
 
-  const decemberLaunchDay = 20;
-  if (currentMonth < 12 || (currentMonth === 12 && currentDay < decemberLaunchDay)) {
-    const daysUntil = calculateDaysUntilLaunch(now, decemberLaunchDay);
-    return {
-      available: false,
-      message: [
-        `OpenCode Wrapped ${year} isn't ready yet!`,
-        `Come back on December ${decemberLaunchDay}th to unwrap your coding year in review.`,
-        `Only ${daysUntil} days to go!`,
-      ],
-    };
-  }
-
+  // Current year - always available
   return { available: true };
-}
-
-function calculateDaysUntilLaunch(now: Date, launchDay: number): number {
-  const launchDate = new Date(now.getFullYear(), 11, launchDay);
-  const diffTime = launchDate.getTime() - now.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
